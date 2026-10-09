@@ -134,7 +134,8 @@ To ship another Box64 version inside the plugin, add its tag to `box64-versions`
 The downloads need the repository to be public: the device fetches releases without a login.
 
 The device needs glibc 2.39 or newer when Box64 is built on Ubuntu 24.04, as in CI. To publish
-a release, set the version in `package.json` and push a matching `vX.Y.Z` tag.
+a release, set the version in `package.json`, then either push a matching `vX.Y.Z` tag or run
+**Actions → Build plugin → Run workflow** on `main` with **release** ticked, which creates the tag.
 
 ## License
 

@@ -7,6 +7,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish release vX.Y.Z from main, with the version in package.json.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -141,13 +146,18 @@ jobs:
           path: out/*
           if-no-files-found: error
 
+  # A pushed vX.Y.Z tag, or a manual run on main with "release" ticked, which creates the tag.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release && github.ref == 'refs/heads/main')
     needs: package
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - uses: actions/download-artifact@v8
         with:
           name: ArmadaBox64-run-${{ github.run_number }}
@@ -156,5 +166,12 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --title "Armada Box64 $TAG" --generate-notes
+        run: |
+          set -euo pipefail
+          tag="v$(jq -r .version package.json)"
+          if [[ $GITHUB_REF == refs/tags/* && $GITHUB_REF_NAME != "$tag" ]]; then
+              echo "Tag $GITHUB_REF_NAME does not match package.json ($tag)." >&2
+              exit 1
+          fi
+          gh release create "$tag" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Armada Box64 $tag" --generate-notes
