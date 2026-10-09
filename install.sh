@@ -2,7 +2,7 @@
 # Installs (or updates) the Armada Box64 Decky plugin from a release ZIP.
 #
 #   bash install.sh                          # newest ArmadaBox64-v*.zip next to this script
-#   bash install.sh ArmadaBox64-v0.1.0.zip   # a specific ZIP
+#   bash install.sh ArmadaBox64-v0.2.0.zip   # a specific ZIP
 #
 # Only ~/homebrew/plugins/ArmadaBox64 changes. Box64, the Proton tools and the settings in
 # ~/.config/armada-box64 stay as they are. sudo is needed because Decky's plugin folder
@@ -45,9 +45,11 @@ done < <(unzip -Z1 "$zip")
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 unzip -q "$zip" -d "$tmp"
-for need in main.py plugin.json package.json dist/index.js py_modules/armadabox64.py bin/box64-armada/box64; do
+for need in main.py plugin.json package.json dist/index.js py_modules/armadabox64.py bin/tools/winetricks; do
     [[ -f "$tmp/$name/$need" ]] || die "The ZIP has no $name/$need."
 done
+find "$tmp/$name/bin/box64" -mindepth 2 -maxdepth 2 -name box64 -type f | grep -q . \
+    || die "The ZIP has no Box64 in $name/bin/box64."
 if find "$tmp/$name" -type l | grep -q .; then
     die 'The ZIP contains symbolic links; refusing it.'
 fi

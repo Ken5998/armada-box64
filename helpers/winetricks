@@ -1,0 +1,17 @@
+#!/bin/sh
+# GE-Proton's protonfixes starts this in place of a game when the plugin installs Windows
+# components (see components_command in py_modules/armadabox64.py). It puts the native ARM64
+# cabextract next to it ahead of the x86_64 one protonfixes ships, then runs the winetricks
+# that comes with the Proton.
+self=$(readlink -f "$0")
+here=$(dirname "$self")
+PATH="$here/bin:$PATH"
+export PATH
+IFS=:
+for dir in $PATH; do
+    if [ -x "$dir/winetricks" ] && [ "$(readlink -f "$dir/winetricks")" != "$self" ]; then
+        exec "$dir/winetricks" "$@"
+    fi
+done
+echo 'winetricks not found: this Proton has no protonfixes winetricks.' >&2
+exit 127

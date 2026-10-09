@@ -1,0 +1,73 @@
+name: Box64 builds
+run-name: Box64 builds · ${{ github.event_name }}
+
+# Once a week: builds the newest Box64 versions that have no release yet and publishes each as
+# release box64-<tag> with box64-<tag>-arm64.tar.gz. The plugin offers them for download.
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: How many of the newest Box64 versions to keep available.
+        type: string
+        default: '8'
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tags: ${{ steps.plan.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COUNT: ${{ inputs.count || '8' }}
+        run: |
+          set -euo pipefail
+          [[ $COUNT =~ ^[1-9][0-9]?$ ]] || { echo "Invalid count: $COUNT" >&2; exit 1; }
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' > published.txt
+          tags="$(git ls-remote --tags https://github.com/ptitSeb/box64 | python3 scripts/box64_plan.py "$COUNT" published.txt)"
+          echo "To build: $tags"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.tags != '[]'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.plan.outputs.tags) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build Box64 ${{ matrix.tag }}
+        env:
+          TAG: ${{ matrix.tag }}
+        run: |
+          set -euo pipefail
+          bash scripts/build-box64.sh "$TAG" "out/$TAG"
+          "out/$TAG/box64" --version
+          tar -C out -czf "box64-$TAG-arm64.tar.gz" "$TAG"
+
+      - name: Publish release box64-${{ matrix.tag }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ matrix.tag }}
+        run: |
+          gh release create "box64-$TAG" "box64-$TAG-arm64.tar.gz" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --latest=false --title "Box64 $TAG" --notes-file "out/$TAG/NOTICE.txt"
