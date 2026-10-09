@@ -94,6 +94,23 @@ class CoreTests(unittest.TestCase):
         self.assertFalse(dst.exists())
         self.assertTrue((src / 'proton').exists())
 
+    def test_tool_goes_out_of_date_when_its_proton_changes(self):
+        src = self.fake_proton('Proton 10.0', base='common')
+        core.install_runtime(self.p, str(self.bundle))
+        core.create_tool(self.p, 'Proton 10.0')
+        self.assertFalse(core.tools(self.p)[0]['outdated'])
+        # A Steam update in place: a new proton script, then a new program in bin/.
+        (src / 'proton').write_text(FAKE_PROTON + '# updated\n')
+        self.assertTrue(core.tools(self.p)[0]['outdated'])
+        core.create_tool(self.p, 'Proton 10.0')
+        self.assertFalse(core.tools(self.p)[0]['outdated'])
+        (src / 'files' / 'bin' / 'wine-preloader').write_bytes(fake_elf(core.X86_64))
+        self.assertTrue(core.tools(self.p)[0]['outdated'])
+        core.create_tool(self.p, 'Proton 10.0')
+        tool = Path(self.p['tools']) / 'Proton-10.0-box64'
+        self.assertIn(self.p['box64'], (tool / 'files' / 'bin' / 'wine-preloader').read_text())
+        self.assertFalse(core.tools(self.p)[0]['outdated'])
+
     def test_rebuild_keeps_the_name_of_an_older_tool(self):
         src = self.fake_proton('GE-Proton10-34')
         old = Path(self.p['tools']) / 'GE-Proton10-34-box64-wow64'

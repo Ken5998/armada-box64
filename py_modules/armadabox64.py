@@ -9,6 +9,7 @@
 It creates Steam compatibility tools that run an existing, unmodified x86_64 Proton under
 Box64 instead of FEX, and keeps the global and per-game settings those tools read at launch.
 """
+import hashlib
 import json
 import os
 import re
@@ -234,6 +235,25 @@ def display_name(tool_dir):
         return os.path.basename(tool_dir)
 
 
+def fingerprint(src):
+    """Changes when the Proton changes in a way its tool would not follow, as after a Steam update
+    in place: the copied proton script, or the set of files that are linked or wrapped."""
+    digest = hashlib.sha256()
+    try:
+        with open(os.path.join(src, 'proton'), 'rb') as f:
+            digest.update(f.read())
+        names = sorted(os.listdir(src))
+        for entry in sorted(os.listdir(os.path.join(src, 'files'))):
+            names.append(f'files/{entry}')
+            path = os.path.join(src, 'files', entry)
+            if entry.startswith('bin') and os.path.isdir(path) and not os.path.islink(path):
+                names += [f'files/{entry}/{item}' for item in sorted(os.listdir(path))]
+    except OSError:
+        return None
+    digest.update('\0'.join(names).encode('utf-8', 'surrogateescape'))
+    return digest.hexdigest()
+
+
 def tools(p):
     if not os.path.isdir(p['tools']):
         return []
@@ -244,13 +264,17 @@ def tools(p):
         if meta is None:
             continue
         source = meta.get('source', '')
+        source_exists = os.path.isfile(os.path.join(source, 'proton'))
         try:
             with open(os.path.join(path, 'proton'), errors='replace') as f:
                 outdated = WRAPPER_TAG not in f.read()
         except OSError:
             outdated = True
+        # Older installers and the plugin's first version wrote no fingerprint: rebuilding adds one.
+        if source_exists and meta.get('fingerprint') != fingerprint(source):
+            outdated = True
         found.append({'dir': entry, 'name': display_name(path), 'source': source, 'outdated': outdated,
-                      'source_exists': os.path.isfile(os.path.join(source, 'proton'))})
+                      'source_exists': source_exists})
     return found
 
 
@@ -342,7 +366,8 @@ def create_tool(p, proton_name):
             raise Box64Error(f'{dst} exists and was not created by Armada Box64; not touching it.')
         shutil.rmtree(dst)
     os.makedirs(dst)
-    write(os.path.join(dst, MARKER), json.dumps({'source': src, 'created': int(time.time())}) + '\n')
+    write(os.path.join(dst, MARKER),
+          json.dumps({'source': src, 'fingerprint': fingerprint(src), 'created': int(time.time())}) + '\n')
 
     for entry in os.listdir(src):
         if entry not in ('files', 'proton', 'compatibilitytool.vdf', 'toolmanifest.vdf'):
