@@ -68,6 +68,8 @@ with `c000007b`: it moves the ARM64 DLLs and the `Wow64` registry keys into
 - The tool's `proton` script reads the settings at every start: `~/.config/armada-box64/games/<app id>.env`
   for a game with its own settings, otherwise `defaults.env`. The app id comes from the prefix
   folder, so non-Steam shortcuts work too. Variables already set (launch options) are kept.
+- When Steam updates a Proton in place, its tool still holds the old `proton` script. The plugin
+  notices the change and offers **Update this tool**.
 - Tools made by the `box64/` installer of
   [Proton-GameNative](https://github.com/Ken5998/Proton-GameNative) are recognized. They ignore the
   plugin's settings until you press **Update this tool**, which rebuilds the tool under its old
