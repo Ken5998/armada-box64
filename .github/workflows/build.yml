@@ -1,0 +1,97 @@
+name: Build plugin
+run-name: Build plugin · ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      box64_ref:
+        description: Upstream Box64 tag to bundle (default is the version tested on ArmadaOS).
+        type: string
+        default: v0.4.3-3
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  BOX64_REF: ${{ inputs.box64_ref || 'v0.4.3-3' }}
+  PNPM_VERSION: 10.28.0
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Backend tests and shell checks
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests.test_core -v
+          TEST_SH=bash python3 -m unittest tests.test_core
+          shellcheck install.sh scripts/*.sh
+
+      - name: Frontend typecheck and build
+        run: |
+          set -euo pipefail
+          npm install -g "pnpm@$PNPM_VERSION"
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm build
+
+  package:
+    needs: check
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build the frontend
+        run: |
+          set -euo pipefail
+          npm install -g "pnpm@$PNPM_VERSION"
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Build Box64
+        run: bash scripts/build-box64.sh
+
+      - name: Smoke-test Box64 and pack the plugin
+        run: |
+          set -euo pipefail
+          bin/box64-armada/box64 --version
+          bash scripts/package.sh
+          cp install.sh out/
+
+      - name: Upload the plugin
+        uses: actions/upload-artifact@v7
+        with:
+          name: ArmadaBox64-run-${{ github.run_number }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ArmadaBox64-run-${{ github.run_number }}
+          path: out
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --title "Armada Box64 $TAG" --generate-notes

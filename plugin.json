@@ -1,0 +1,11 @@
+{
+  "name": "Armada Box64",
+  "author": "Kenan Kasumović",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["armadaos", "box64", "proton"],
+    "description": "Run existing x86_64 Proton builds under Box64 instead of FEX, with per-game NTSync, WoW64 and Box64 settings.",
+    "image": ""
+  }
+}
