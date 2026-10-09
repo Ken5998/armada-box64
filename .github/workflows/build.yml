@@ -64,7 +64,7 @@ jobs:
 
       # A tag's build only changes with the build script.
       - id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: bin/box64/${{ matrix.tag }}
           key: box64-${{ matrix.tag }}-${{ hashFiles('scripts/build-box64.sh') }}
