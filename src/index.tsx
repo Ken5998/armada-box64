@@ -22,16 +22,20 @@ type Values = {
   log: boolean;
   preset: string;
   safeflags: string;
+  box64: string;
 };
 type BoolKey = "ntsync" | "wow64" | "dynacache" | "log";
 type State = {
-  runtime: { version: string | null; installed: string | null; bundled: string | null; update: boolean };
+  runtime: { version: string | null; installed: string[]; bundled: string[]; update: boolean };
   protons: { name: string; path: string; wow64: boolean }[];
-  tools: { dir: string; name: string; source: string; source_exists: boolean; outdated: boolean }[];
+  tools: { dir: string; name: string; source: string; source_exists: boolean; outdated: boolean; components: boolean }[];
   settings: { global: Values; games: Record<string, Partial<Values>> };
   recent: string[];
   presets: string[];
+  components: string[];
 };
+type Job = { state: "running" | "done" | "failed"; verbs: string[]; message: string; log: string };
+type GameInfo = { prefix: boolean; tool: string | null; components_ok: boolean; installed: string[]; job: Job | null };
 type Reply<T> = { ok: true; result: T } | { ok: false; error: string };
 
 const getState = callable<[], Reply<State>>("get_state");
@@ -42,6 +46,8 @@ const setGlobal = callable<[key: string, value: unknown], Reply<unknown>>("set_g
 const setGame = callable<[game: string, key: string, value: unknown], Reply<unknown>>("set_game");
 const resetGame = callable<[game: string], Reply<unknown>>("reset_game");
 const cleanPrefix = callable<[game: string], Reply<{ moved: number }>>("clean_prefix");
+const getGame = callable<[game: string], Reply<GameInfo>>("get_game");
+const installComponents = callable<[game: string, verbs: string[]], Reply<Job>>("install_components");
 
 const SAFEFLAGS = ["preset", "0", "1", "2"];
 const BOOLS: { key: BoolKey; label: string; hint: string }[] = [
@@ -59,6 +65,83 @@ function gameName(id: string): string {
 
 const safeflagsLabel = (v: string) => (v === "preset" ? t.fromPreset : v);
 const presetLabel = (v: string) => t.presetNames[v] ?? v;
+const componentLabel = (v: string) => t.componentNames[v] ?? v;
+
+// Windows components of one game: what is installed, and one more to install with winetricks.
+function GameComponents({ game, all }: { game: string; all: string[] }) {
+  const [info, setInfo] = useState<GameInfo | null>(null);
+  const [pick, setPick] = useState<string | undefined>();
+
+  const load = async () => {
+    const reply = await getGame(game);
+    if (reply.ok) setInfo(reply.result);
+  };
+
+  useEffect(() => {
+    setInfo(null);
+    load();
+  }, [game]);
+
+  // While an install runs, its state is read again every few seconds.
+  const running = info?.job?.state === "running";
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(load, 3000);
+    return () => clearInterval(timer);
+  }, [running, game]);
+
+  if (!info) return null;
+  const available = all.filter((v) => !info.installed.includes(v));
+  const choice = pick && available.includes(pick) ? pick : available[0];
+  const blocker = !info.prefix ? t.needPrefix : !info.components_ok ? t.needGE : null;
+  const job = info.job;
+
+  const start = async () => {
+    if (!choice) return;
+    const reply = await installComponents(game, [choice]);
+    if (!reply.ok) toaster.toast({ title: t.error, body: reply.error });
+    await load();
+  };
+
+  return (
+    <>
+      <PanelSectionRow>
+        <Field
+          label={t.components}
+          description={info.installed.length ? info.installed.map(componentLabel).join(", ") : t.noComponents}
+        />
+      </PanelSectionRow>
+      {blocker ? (
+        <PanelSectionRow>
+          <Field description={blocker} />
+        </PanelSectionRow>
+      ) : (
+        <>
+          <PanelSectionRow>
+            <DropdownItem
+              label={t.addComponent}
+              rgOptions={available.map((v) => ({ data: v, label: componentLabel(v) }))}
+              selectedOption={choice}
+              disabled={running || !available.length}
+              onChange={(o) => setPick(o.data)}
+            />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <ButtonItem layout="below" description={info.tool ? `${t.withTool} ${info.tool}` : undefined}
+              disabled={running || !choice} onClick={start}>
+              {running ? t.installing(job!.verbs.map(componentLabel).join(", ")) : t.install}
+            </ButtonItem>
+          </PanelSectionRow>
+        </>
+      )}
+      {job && job.state !== "running" && (
+        <PanelSectionRow>
+          <Field description={job.state === "done" ? t.installed(job.verbs.map(componentLabel).join(", ")) : `${job.message} (${job.log})`} />
+        </PanelSectionRow>
+      )}
+    </>
+  );
+}
 
 function Content() {
   const [state, setState] = useState<State | null>(null);
@@ -97,6 +180,9 @@ function Content() {
   const { runtime, settings } = state;
   const globals = settings.global;
 
+  const versionLabel = (v: string) => (v === "latest" ? `${t.newest} (${runtime.installed[0] ?? "-"})` : v);
+  const versionOptions = ["latest", ...runtime.installed].map((v) => ({ data: v, label: versionLabel(v) }));
+
   const games = [
     ...new Set([...(running ? [String(running)] : []), ...state.recent, ...Object.keys(settings.games)]),
   ];
@@ -127,12 +213,16 @@ function Content() {
     <>
       <PanelSection title={t.box64}>
         <PanelSectionRow>
-          <Field label={runtime.version ?? t.notInstalled} description={runtime.bundled ? `${t.bundled}: ${runtime.bundled}` : undefined} />
+          <Field
+            label={runtime.version ?? t.notInstalled}
+            description={runtime.installed.length ? `${t.versions}: ${runtime.installed.join(", ")}` : undefined}
+          />
         </PanelSectionRow>
-        {(runtime.update || !runtime.version) && runtime.bundled && (
+        {(runtime.update || !runtime.version) && runtime.bundled.length > 0 && (
           <PanelSectionRow>
-            <ButtonItem layout="below" disabled={busy} onClick={() => run(installRuntime)}>
-              {runtime.installed ? t.updateBox64 : t.installBox64}
+            <ButtonItem layout="below" description={`${t.bundled}: ${runtime.bundled.join(", ")}`} disabled={busy}
+              onClick={() => run(installRuntime)}>
+              {runtime.installed.length ? t.updateBox64 : t.installBox64}
             </ButtonItem>
           </PanelSectionRow>
         )}
@@ -209,6 +299,15 @@ function Content() {
         ))}
         <PanelSectionRow>
           <DropdownItem
+            label={t.box64Version}
+            rgOptions={versionOptions}
+            selectedOption={globals.box64}
+            disabled={busy}
+            onChange={(o) => run(() => setGlobal("box64", o.data))}
+          />
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <DropdownItem
             label={t.preset}
             rgOptions={state.presets.map((p) => ({ data: p, label: presetLabel(p) }))}
             selectedOption={globals.preset}
@@ -262,6 +361,15 @@ function Content() {
             ))}
             <PanelSectionRow>
               <DropdownItem
+                label={t.box64Version}
+                rgOptions={[{ data: "inherit", label: `${t.useDefault} (${versionLabel(globals.box64)})` }, ...versionOptions]}
+                selectedOption={overrides.box64 ?? "inherit"}
+                disabled={busy}
+                onChange={(o) => run(() => setGame(selected, "box64", o.data === "inherit" ? null : o.data))}
+              />
+            </PanelSectionRow>
+            <PanelSectionRow>
+              <DropdownItem
                 label={t.preset}
                 rgOptions={[
                   { data: "inherit", label: `${t.useDefault} (${presetLabel(globals.preset)})` },
@@ -291,6 +399,7 @@ function Content() {
                 </ButtonItem>
               </PanelSectionRow>
             )}
+            <GameComponents game={selected} all={state.components} />
             <PanelSectionRow>
               <ButtonItem layout="below" description={t.cleanPrefixHint} disabled={busy} onClick={() => confirmClean(selected)}>
                 {t.cleanPrefix}

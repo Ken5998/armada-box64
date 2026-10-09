@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Builds the Box64 runtime the plugin ships in bin/box64-armada: Box64 for ARM64 Linux (with
-# Box32) plus the x86_64 and i386 GCC runtime libraries that Wine's Unix side needs.
+# Builds one Box64 version for the plugin: Box64 for ARM64 Linux (with Box32) plus the x86_64
+# and i386 GCC runtime libraries that Wine's Unix side needs, in bin/box64/<tag>.
 #
-#   bash scripts/build-box64.sh [OUTPUT_DIR]        # default OUTPUT_DIR: bin/box64-armada
+#   bash scripts/build-box64.sh TAG [OUTPUT_DIR]    # default OUTPUT_DIR: bin/box64/TAG
 #
-# BOX64_REF picks the upstream tag (default: the version tested on ArmadaOS).
+# box64-versions lists the tags the plugin ships, newest first.
 # Not on ARM64? Set CROSS_PREFIX=aarch64-linux-gnu- to cross-compile.
 set -euo pipefail
 
-ref="${BOX64_REF:-v0.4.3-3}"
-[[ $ref =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Invalid BOX64_REF: $ref" >&2; exit 1; }
-out="$(realpath -m "${1:-bin/box64-armada}")"
+ref="${1:?usage: build-box64.sh TAG [OUTPUT_DIR]}"
+[[ $ref =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid Box64 tag: $ref" >&2; exit 1; }
+out="$(realpath -m "${2:-bin/box64/$ref}")"
 cross="${CROSS_PREFIX:-}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

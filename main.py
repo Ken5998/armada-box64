@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 
 import decky
 
@@ -11,7 +12,7 @@ def _paths():
 
 
 def _bundle():
-    return os.path.join(decky.DECKY_PLUGIN_DIR, 'bin', 'box64-armada')
+    return os.path.join(decky.DECKY_PLUGIN_DIR, 'bin')
 
 
 async def _run(fn, *args):
@@ -26,7 +27,23 @@ async def _run(fn, *args):
         return {'ok': False, 'error': f'{type(e).__name__}: {e}'}
 
 
+_tasks = set()
+
+
+async def _install(job, p, game, verbs, log):
+    """Runs a Windows component install to the end and records the outcome in its job."""
+    def work():
+        with open(log, 'w') as f:
+            return core.install_components(p, game, verbs, log=f)
+    reply = await _run(work)
+    job['state'] = 'done' if reply['ok'] else 'failed'
+    job['message'] = '' if reply['ok'] else reply['error']
+
+
 class Plugin:
+    # Windows component installs, one per game: {'state': running|done|failed, 'verbs', 'message', 'log'}.
+    jobs = {}
+
     async def get_state(self):
         return await _run(core.state, _paths(), _bundle())
 
@@ -50,6 +67,30 @@ class Plugin:
 
     async def clean_prefix(self, game: str):
         return await _run(core.cleanprefix, _paths(), game)
+
+    async def get_game(self, game: str):
+        reply = await _run(core.game_info, _paths(), game)
+        if reply['ok']:
+            reply['result']['job'] = self.jobs.get(str(game))
+        return reply
+
+    async def install_components(self, game: str, verbs: list):
+        game = str(game)
+        if (self.jobs.get(game) or {}).get('state') == 'running':
+            return {'ok': False, 'error': 'An install is already running for this game.'}
+        # Checks the request now, so mistakes show up at once rather than at the end.
+        for check in (await _run(core.components_command, _paths(), game, verbs), await _run(core.require_no_wine)):
+            if not check['ok']:
+                return check
+        p = _paths()
+        os.makedirs(p['logs'], exist_ok=True)
+        log = os.path.join(p['logs'], f'components-{game}-{time.strftime("%Y%m%d-%H%M%S")}.log')
+        self.jobs[game] = {'state': 'running', 'verbs': verbs, 'message': '', 'log': log}
+        task = asyncio.get_running_loop().create_task(_install(self.jobs[game], p, game, verbs, log))
+        # The loop keeps only a weak reference to a task.
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
+        return {'ok': True, 'result': self.jobs[game]}
 
     async def _main(self):
         decky.logger.info('Armada Box64 loaded')

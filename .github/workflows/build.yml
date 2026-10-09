@@ -7,18 +7,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
-    inputs:
-      box64_ref:
-        description: Upstream Box64 tag to bundle (default is the version tested on ArmadaOS).
-        type: string
-        default: v0.4.3-3
-        required: true
 
 permissions:
   contents: read
 
 env:
-  BOX64_REF: ${{ inputs.box64_ref || 'v0.4.3-3' }}
   PNPM_VERSION: 10.28.0
 
 jobs:
@@ -33,9 +26,10 @@ jobs:
       - name: Backend tests and shell checks
         run: |
           set -euo pipefail
-          python3 -m unittest tests.test_core -v
-          TEST_SH=bash python3 -m unittest tests.test_core
+          python3 -m unittest discover -s tests -v
+          TEST_SH=bash python3 -m unittest discover -s tests
           shellcheck install.sh scripts/*.sh
+          shellcheck -s sh helpers/winetricks
 
       - name: Frontend typecheck and build
         run: |
@@ -45,10 +39,53 @@ jobs:
           pnpm typecheck
           pnpm build
 
-  package:
-    needs: check
+  versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      tags: ${{ steps.read.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: read
+        run: echo "tags=$(jq -Rnc '[inputs | select(length > 0)]' < box64-versions)" >> "$GITHUB_OUTPUT"
+
+  box64:
+    needs: versions
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
+    strategy:
+      matrix:
+        tag: ${{ fromJSON(needs.versions.outputs.tags) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # A tag's build only changes with the build script.
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: bin/box64/${{ matrix.tag }}
+          key: box64-${{ matrix.tag }}-${{ hashFiles('scripts/build-box64.sh') }}
+
+      - name: Build Box64 ${{ matrix.tag }}
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-box64.sh "${{ matrix.tag }}"
+
+      - name: Smoke-test Box64 ${{ matrix.tag }}
+        run: bin/box64/${{ matrix.tag }}/box64 --version
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: box64-${{ matrix.tag }}
+          path: bin/box64/${{ matrix.tag }}
+          if-no-files-found: error
+
+  package:
+    needs: [check, box64]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -61,13 +98,39 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Build Box64
-        run: bash scripts/build-box64.sh
-
-      - name: Smoke-test Box64 and pack the plugin
+      - name: Collect the Box64 builds
         run: |
           set -euo pipefail
-          bin/box64-armada/box64 --version
+          while read -r tag; do
+              [[ -n $tag ]] && mkdir -p "bin/box64/$tag"
+          done < box64-versions
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: box64-*
+          path: artifacts
+
+      - name: Place the Box64 builds
+        run: |
+          set -euo pipefail
+          while read -r tag; do
+              [[ -n $tag ]] || continue
+              cp -r "artifacts/box64-$tag/." "bin/box64/$tag/"
+              chmod 755 "bin/box64/$tag/box64"
+              "bin/box64/$tag/box64" --version
+          done < box64-versions
+
+      - name: Build the Windows component helpers
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake autopoint gettext
+          bash scripts/build-helpers.sh
+          bin/tools/bin/cabextract --version
+
+      - name: Pack the plugin
+        run: |
+          set -euo pipefail
           bash scripts/package.sh
           cp install.sh out/
 

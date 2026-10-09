@@ -1,10 +1,11 @@
 """Core of the Armada Box64 plugin. Decky's main.py calls it; it also runs on its own:
 
   python3 armadabox64.py status
-  python3 armadabox64.py install-runtime BUNDLE_DIR
+  python3 armadabox64.py install-runtime BUNDLE_DIR      # the plugin's bin/ folder
   python3 armadabox64.py create PROTON
   python3 armadabox64.py remove TOOL_DIR
   python3 armadabox64.py cleanprefix ID
+  python3 armadabox64.py components ID VERB...          # install Windows components with winetricks
 
 It creates Steam compatibility tools that run an existing, unmodified x86_64 Proton under
 Box64 instead of FEX, and keeps the global and per-game settings those tools read at launch.
@@ -57,6 +58,8 @@ DEFAULTS = {
     'preset': 'default',
     'safeflags': 'preset',
     'log': False,
+    # A Box64 tag from the runtime, or the newest one.
+    'box64': 'latest',
 }
 CHOICES = {
     'preset': ['default', *PRESETS],
@@ -66,8 +69,18 @@ CHOICES = {
 WRAPPER_DEFAULTS = {'PROTON_NO_NTSYNC': '1', 'PROTON_USE_WOW64': '1', 'BOX64_DYNACACHE': '0'}
 
 GAME_ID = re.compile(r'[0-9]{1,20}')
+BOX64_TAG = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}')
 # Written into every tool's proton script; a tool without it predates the current settings support.
-WRAPPER_TAG = '# armada-box64 wrapper 1'
+WRAPPER_TAG = '# armada-box64 wrapper 2'
+
+# Windows components offered per game, as winetricks verbs. They install through GE-Proton's
+# protonfixes, which runs winetricks with the game's own Wine and prefix.
+COMPONENTS = [
+    'd3dx9', 'd3dcompiler_47', 'd3dx11_43', 'xact', 'xinput', 'dsound', 'dinput8',
+    'directmusic', 'directplay', 'directshow',
+    'vcrun2005', 'vcrun2008', 'vcrun2010', 'vcrun2012', 'vcrun2013', 'vcrun2022',
+    'corefonts', 'physx',
+]
 
 
 class Box64Error(Exception):
@@ -86,8 +99,11 @@ def paths(home=None):
         'common': os.path.join(steam, 'steamapps/common'),
         'compat': os.path.join(steam, 'steamapps/compatdata'),
         'runtime': runtime,
-        'box64': os.path.join(runtime, 'box64'),
-        'rcfile': os.path.join(runtime, 'box64.box64rc'),
+        'versions': os.path.join(runtime, 'versions'),
+        # The newest version, through the 'latest' link.
+        'box64': os.path.join(runtime, 'versions', 'latest', 'box64'),
+        'helpers': os.path.join(runtime, 'tools'),
+        'logs': os.path.join(config, 'logs'),
         'config': config,
         'settings': os.path.join(config, 'settings.json'),
         'games': os.path.join(config, 'games'),
@@ -154,6 +170,14 @@ X86_64, AARCH64 = 0x3e, 0xb7
 
 
 # --- Box64 runtime -------------------------------------------------------------------
+#
+# The plugin's bin/ folder holds box64/<tag>/ for every Box64 version it ships and tools/ with
+# the helpers for Windows components. The runtime copy in ~/.local/share/box64-armada has
+# versions/<tag>/, versions/latest (a link to the newest tag) and tools/. Top-level links to
+# the newest version keep tools made by older installers working.
+
+LEGACY_LINKS = ('box64', 'x64lib', 'x86lib', 'box64.box64rc')
+
 
 def read_notice(directory):
     try:
@@ -163,11 +187,24 @@ def read_notice(directory):
         return None
 
 
-def box64_version(p):
-    if not os.access(p['box64'], os.X_OK):
+def version_key(tag):
+    return [int(n) for n in re.findall(r'[0-9]+', tag)]
+
+
+def versions_in(directory):
+    """Box64 tags found in a folder, newest first."""
+    if not os.path.isdir(directory):
+        return []
+    tags = [d for d in os.listdir(directory) if d != 'latest' and BOX64_TAG.fullmatch(d)
+            and os.path.isfile(os.path.join(directory, d, 'box64'))]
+    return sorted(tags, key=version_key, reverse=True)
+
+
+def box64_version(path):
+    if not os.access(path, os.X_OK):
         return None
     try:
-        out = subprocess.run([p['box64'], '--version'], capture_output=True, text=True, timeout=20,
+        out = subprocess.run([path, '--version'], capture_output=True, text=True, timeout=20,
                              env=system_env())
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -176,37 +213,49 @@ def box64_version(p):
 
 
 def runtime_status(p, bundle=None):
-    installed = read_notice(p['runtime']) if os.path.isfile(p['box64']) else None
-    bundled = read_notice(bundle) if bundle else None
+    installed = versions_in(p['versions'])
+    bundled = versions_in(os.path.join(bundle, 'box64')) if bundle else []
+    notices = lambda base, tags: {t: read_notice(os.path.join(base, t)) for t in tags}  # noqa: E731
     return {
-        'version': box64_version(p),
+        'version': box64_version(p['box64']),
         'installed': installed,
         'bundled': bundled,
-        'update': bool(bundled) and installed != bundled,
+        'update': bool(bundled) and (notices(p['versions'], installed) != notices(os.path.join(bundle, 'box64'), bundled)
+                                     or not os.path.isfile(os.path.join(p['helpers'], 'winetricks'))),
     }
 
 
 def install_runtime(p, bundle):
-    """Copies the Box64 bundle shipped with the plugin to ~/.local/share/box64-armada, where
-    the tools find it even after the plugin is updated or removed."""
-    if not os.path.isfile(os.path.join(bundle, 'box64')):
-        raise Box64Error(f'No Box64 in {bundle}')
+    """Copies every Box64 version and helper shipped with the plugin to ~/.local/share/box64-armada,
+    where the tools find them even after the plugin is updated or removed."""
+    tags = versions_in(os.path.join(bundle, 'box64'))
+    if not tags:
+        raise Box64Error(f'No Box64 in {bundle}/box64')
     require_no_wine()
     parent = os.path.dirname(p['runtime'])
     os.makedirs(parent, exist_ok=True)
     staging = tempfile.mkdtemp(prefix='.box64-armada-', dir=parent)
     try:
-        shutil.copytree(bundle, os.path.join(staging, 'new'), symlinks=True)
-        os.chmod(os.path.join(staging, 'new', 'box64'), 0o755)
+        new = os.path.join(staging, 'new')
+        os.makedirs(os.path.join(new, 'versions'))
+        for tag in tags:
+            dst = os.path.join(new, 'versions', tag)
+            shutil.copytree(os.path.join(bundle, 'box64', tag), dst, symlinks=True)
+            os.chmod(os.path.join(dst, 'box64'), 0o755)
+        os.symlink(tags[0], os.path.join(new, 'versions', 'latest'))
+        for name in LEGACY_LINKS:
+            os.symlink(os.path.join('versions', 'latest', name), os.path.join(new, name))
+        if os.path.isdir(os.path.join(bundle, 'tools')):
+            shutil.copytree(os.path.join(bundle, 'tools'), os.path.join(new, 'tools'), symlinks=True)
         if os.path.lexists(p['runtime']):
             os.replace(p['runtime'], os.path.join(staging, 'old'))
-        os.replace(os.path.join(staging, 'new'), p['runtime'])
+        os.replace(new, p['runtime'])
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-    version = box64_version(p)
-    if not version:
-        raise Box64Error('Box64 was copied but does not run on this system.')
-    return version
+    broken = [t for t in tags if not box64_version(os.path.join(p['versions'], t, 'box64'))]
+    if broken:
+        raise Box64Error(f'Box64 was copied but does not run on this system: {", ".join(broken)}')
+    return box64_version(p['box64'])
 
 
 # --- Proton tools --------------------------------------------------------------------
@@ -274,7 +323,7 @@ def tools(p):
         if source_exists and meta.get('fingerprint') != fingerprint(source):
             outdated = True
         found.append({'dir': entry, 'name': display_name(path), 'source': source, 'outdated': outdated,
-                      'source_exists': source_exists})
+                      'source_exists': source_exists, 'components': supports_components(path)})
     return found
 
 
@@ -319,8 +368,6 @@ def wrapper_script(p, source_name):
 here=$(dirname "$(readlink -f "$0")")
 # HODLL selects an ARM64 Proton's 32-bit emulator DLL; it must not leak into an x86_64 Wine.
 unset HODLL
-export BOX64_RCFILE={sh_quote(p['rcfile'])}
-export BOX64_LD_LIBRARY_PATH={sh_quote(p['runtime'] + '/x64lib:' + p['runtime'] + '/x86lib')}
 cfg="${{XDG_CONFIG_HOME:-$HOME/.config}}/armada-box64"
 # The prefix folder's name is the game's app id, also for non-Steam shortcuts.
 game=
@@ -336,11 +383,20 @@ load() {{
 }}
 if [ -n "$game" ]; then
     load "$cfg/games/$game.env" || load "$cfg/defaults.env"
-    case $1 in run|waitforexitandrun) [ -d "$cfg" ] && echo "$game $(date +%s)" >> "$cfg/launches" ;; esac
+    # Remembers which tool started the game; Windows components install with the same one.
+    case $1 in run|waitforexitandrun)
+        [ -d "$cfg" ] && [ -z "$UMU_ID" ] && echo "$game $(date +%s) $(basename "$here")" >> "$cfg/launches" ;;
+    esac
 else
     load "$cfg/defaults.env"
 fi
-{defaults}exec python3 "$here/proton.py" "$@"
+{defaults}# The Box64 version: the one chosen in the plugin if it is installed, else the newest.
+box64={sh_quote(p['versions'])}/"${{ARMADA_BOX64_VERSION:-latest}}"
+[ -x "$box64/box64" ] || box64={sh_quote(p['versions'])}/latest
+export ARMADA_BOX64="$box64/box64"
+export BOX64_RCFILE="$box64/box64.box64rc"
+export BOX64_LD_LIBRARY_PATH="$box64/x64lib:$box64/x86lib"
+exec python3 "$here/proton.py" "$@"
 '''
 
 
@@ -390,7 +446,9 @@ def create_tool(p, proton_name):
             link = os.path.join(dst, 'files', entry, item)
             if os.path.isfile(real) and elf_machine(real) is not None:
                 # Box64 then runs every x86 program Wine starts (wineserver, loaders) by itself.
-                write(link, f'#!/bin/sh\nexec {sh_quote(p["box64"])} {sh_quote(real)} "$@"\n', executable=True)
+                # ARMADA_BOX64 comes from the tool's proton script; the default covers direct starts.
+                write(link, f'#!/bin/sh\nbox64={sh_quote(p["box64"])}\n'
+                            f'exec "${{ARMADA_BOX64:-$box64}}" {sh_quote(real)} "$@"\n', executable=True)
             else:
                 os.symlink(real, link)
 
@@ -445,6 +503,9 @@ def clean(values, partial):
         if isinstance(default, bool):
             if isinstance(value, bool):
                 out[key] = value
+        elif key == 'box64':
+            if isinstance(value, str) and BOX64_TAG.fullmatch(value):
+                out[key] = value
         elif value in CHOICES[key]:
             out[key] = value
     if not partial:
@@ -475,6 +536,7 @@ def to_env(values):
         'PROTON_USE_WOW64': '1' if values['wow64'] else '0',
         'BOX64_DYNACACHE': '1' if values['dynacache'] else '0',
         'BOX64_LOG': '1' if values['log'] else '0',
+        'ARMADA_BOX64_VERSION': values['box64'],
     }
     for key, value in PRESETS.get(values['preset'], {}).items():
         env[f'BOX64_{key}' if key in PLAIN_BOX64 else f'BOX64_DYNAREC_{key}'] = value
@@ -513,7 +575,8 @@ def save_settings(p, settings):
 
 def set_global(p, key, value):
     settings = load_settings(p)
-    settings['global'] = clean({**settings['global'], key: value}, partial=False)
+    # An invalid value leaves the setting as it was.
+    settings['global'].update(clean({key: value}, partial=True))
     return save_settings(p, settings)
 
 
@@ -537,21 +600,130 @@ def reset_game(p, game):
     return save_settings(p, settings)
 
 
-def recent_games(p, limit=12):
-    """Games started with a Box64 tool, newest first. Also trims the launch log."""
+def launches(p):
+    """(game, tool) per start, oldest first; the tool is missing in older lines."""
     try:
         with open(p['launches']) as f:
             lines = f.read().splitlines()
     except OSError:
         return []
-    seen = []
-    for line in reversed(lines):
-        game = line.split(' ', 1)[0]
-        if GAME_ID.fullmatch(game) and game not in seen:
+    out = []
+    for line in lines:
+        parts = line.split()
+        if parts and GAME_ID.fullmatch(parts[0]):
+            out.append((parts[0], parts[2] if len(parts) > 2 else None))
+    return out
+
+
+def recent_games(p, limit=12):
+    """Games started with a Box64 tool, newest first. Also trims the launch log."""
+    entries = launches(p)
+    seen, last = [], {}
+    for game, tool in reversed(entries):
+        if game not in seen:
             seen.append(game)
-    if len(lines) > 400:
-        write(p['launches'], ''.join(f'{g} 0\n' for g in reversed(seen)))
+        if tool and game not in last:
+            last[game] = tool
+    if len(entries) > 400:
+        write(p['launches'], ''.join(f'{g} 0 {last.get(g, "")}'.rstrip() + '\n' for g in reversed(seen)))
     return seen[:limit]
+
+
+def last_tool(p, game):
+    for g, tool in reversed(launches(p)):
+        if g == game and tool:
+            return tool
+    return None
+
+
+# --- Windows components ----------------------------------------------------------------
+
+def supports_components(tool_dir):
+    """GE-Proton runs winetricks inside its own environment when started for it (protonfixes)."""
+    try:
+        with open(os.path.join(tool_dir, 'proton.py'), errors='replace') as f:
+            return 'protonfixes.winetricks(' in f.read()
+    except OSError:
+        return False
+
+
+def installed_components(p, game):
+    found = []
+    for name in ('winetricks.log', 'winetricks.log.forced'):
+        try:
+            with open(os.path.join(p['compat'], game, 'pfx', name), errors='replace') as f:
+                found += [line.strip() for line in f if line.strip()]
+        except OSError:
+            pass
+    return sorted(set(found) & set(COMPONENTS), key=COMPONENTS.index)
+
+
+def components_command(p, game, verbs, tool=None):
+    """The command that installs winetricks verbs into a game's prefix through its Box64 tool:
+    GE-Proton prepares the prefix as for a launch, runs winetricks with that Wine, then exits."""
+    game = str(game)
+    if not GAME_ID.fullmatch(game):
+        raise Box64Error(f'Invalid game id: {game}')
+    verbs = list(dict.fromkeys(verbs))
+    if not verbs or any(v not in COMPONENTS for v in verbs):
+        raise Box64Error(f'Unknown component: {", ".join(v for v in verbs if v not in COMPONENTS) or "none"}')
+    if not os.path.isdir(os.path.join(p['compat'], game, 'pfx')):
+        raise Box64Error('Start the game once first, so that it has a Proton prefix.')
+    tool = tool or last_tool(p, game)
+    if not tool:
+        raise Box64Error('Start the game once with a Box64 tool first.')
+    tool_dir = os.path.join(p['tools'], tool)
+    if os.path.basename(tool) != tool or read_meta(tool_dir) is None:
+        raise Box64Error(f'{tool} is not an Armada Box64 tool.')
+    if not supports_components(tool_dir):
+        raise Box64Error('Windows components need a GE-Proton based Box64 tool.')
+    winetricks = os.path.join(p['helpers'], 'winetricks')
+    if not os.path.isfile(winetricks):
+        raise Box64Error('Install Box64 again from the plugin: the winetricks helper is missing.')
+    env = system_env()
+    env.update({
+        'STEAM_COMPAT_DATA_PATH': os.path.join(p['compat'], game),
+        'STEAM_COMPAT_CLIENT_INSTALL_PATH': p['steam'],
+        # protonfixes runs winetricks instead of a game when these three are set.
+        'UMU_ID': 'armada-box64',
+        'EXE': winetricks,
+        'PROTON_VERB': 'waitforexitandrun',
+        'WINETRICKS_LATEST_VERSION_CHECK': 'disabled',
+    })
+    # Installers open windows; gamescope's X display is :0 when the backend has none.
+    env.setdefault('DISPLAY', ':0')
+    argv = [os.path.join(tool_dir, 'proton'), 'waitforexitandrun', winetricks, '--unattended', *verbs]
+    return argv, env
+
+
+def game_info(p, game):
+    game = str(game)
+    if not GAME_ID.fullmatch(game):
+        raise Box64Error(f'Invalid game id: {game}')
+    tool = last_tool(p, game)
+    tool_dir = os.path.join(p['tools'], tool) if tool else None
+    return {
+        'prefix': os.path.isdir(os.path.join(p['compat'], game, 'pfx')),
+        'tool': display_name(tool_dir) if tool_dir and os.path.isdir(tool_dir) else None,
+        'components_ok': bool(tool_dir) and supports_components(tool_dir),
+        'installed': installed_components(p, game),
+    }
+
+
+def install_components(p, game, verbs, tool=None, log=None):
+    """Runs the install and waits; returns the components installed afterwards."""
+    argv, env = components_command(p, game, verbs, tool)
+    require_no_wine()
+    if log is None:
+        rc = subprocess.run(argv, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                            stdin=subprocess.DEVNULL).returncode
+    else:
+        rc = subprocess.run(argv, env=env, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL).returncode
+    done = installed_components(p, str(game))
+    missing = [v for v in verbs if v not in done]
+    if rc or missing:
+        raise Box64Error(f'winetricks did not install: {", ".join(missing) or ", ".join(verbs)} (exit {rc})')
+    return done
 
 
 # --- Prefix cleanup ------------------------------------------------------------------
@@ -630,6 +802,7 @@ def state(p, bundle=None):
         'settings': load_settings(p),
         'recent': recent_games(p),
         'presets': CHOICES['preset'],
+        'components': COMPONENTS,
     }
 
 
@@ -645,6 +818,8 @@ def main(argv):
             print('Created', create_tool(p, args[0])['name'], '- restart Steam to see it.')
         elif mode == 'remove' and len(args) == 1:
             remove_tool(p, args[0])
+        elif mode == 'components' and len(args) >= 2:
+            print('Installed:', ', '.join(install_components(p, args[0], args[1:], log=sys.stdout)))
         elif mode == 'cleanprefix' and len(args) == 1:
             result = cleanprefix(p, args[0])
             print('\n'.join(result['report']) or 'Nothing ARM64-specific found in the prefix.')
