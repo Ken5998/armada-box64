@@ -45,7 +45,8 @@ tried on a device yet.
 3. In the game's Properties → Compatibility, pick **<Proton> (Box64)**.
 4. Change settings under **Defaults for every game**, or pick the game under **Per game**. A game
    shows up there while it runs, and after it was started once with a Box64 tool. A game you
-   switch back to another Proton in Steam leaves the list, unless it has its own settings here.
+   switch back to another Proton in Steam leaves the list; its settings stay saved and come back
+   with it. The game section shows which tool Steam starts the game with.
 
 Once Box64 is installed, the panel opens on **Per game** (with that game's Windows components and
 repair), then the defaults, the Proton switches and Box64 itself. It keeps its scroll position and

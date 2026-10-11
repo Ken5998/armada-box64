@@ -94,7 +94,7 @@ const kept: {
   catalog?: Catalog;
   games: Record<string, GameInfo>;
   picks: Record<string, string | undefined>;
-  compat: Record<string, string>;
+  compat: Record<string, { name: string; display: string }>;
 } = { games: {}, picks: {}, compat: {} };
 
 function useKept<T>(read: () => T, write: (value: T) => void): [T, (value: T) => void] {
@@ -113,9 +113,11 @@ function useCompatTools(ids: string[]) {
   useEffect(() => {
     const subscriptions = ids.map((id) =>
       SteamClient.Apps.RegisterForAppDetails(Number(id), (details) => {
-        const tool = details?.strCompatToolName ?? "";
-        if (kept.compat[id] !== tool) {
-          kept.compat[id] = tool;
+        const name = details?.strCompatToolName ?? "";
+        const display = details?.strCompatToolDisplayName || name;
+        const known = kept.compat[id];
+        if (known?.name !== name || known?.display !== display) {
+          kept.compat[id] = { name, display };
           setTick((n) => n + 1);
         }
       }),
@@ -260,7 +262,9 @@ function Content() {
     check(false);
   }, []);
 
-  const compat = useCompatTools(state?.recent ?? []);
+  const compat = useCompatTools([
+    ...new Set([...(state?.recent ?? []), ...Object.keys(state?.settings.games ?? {})]),
+  ]);
 
   if (!state) return null;
   const { runtime, settings } = state;
@@ -277,15 +281,15 @@ function Content() {
   const versionLabel = (v: string) => (v === "latest" ? `${t.newest} (${runtime.installed[0] ?? "-"})` : v);
   const versionOptions = ["latest", ...runtime.installed].map((v) => ({ data: v, label: versionLabel(v) }));
 
-  // Recent games that Steam now starts with another Proton leave the list; a game with its own
-  // settings here, or the running one, stays.
+  // Games that Steam now starts with another Proton leave the list (their settings stay saved
+  // and come back with the game); the running game always shows. When Steam reports no tool of
+  // its own for a game, it stays.
   const box64Tools = new Set(state.tools.map((tool) => tool.key));
-  const onBox64 = (id: string) => !compat[id] || box64Tools.has(compat[id]);
+  const onBox64 = (id: string) => !compat[id]?.name || box64Tools.has(compat[id].name);
   const games = [
     ...new Set([
       ...(running ? [String(running)] : []),
-      ...state.recent.filter(onBox64),
-      ...Object.keys(settings.games),
+      ...[...state.recent, ...Object.keys(settings.games)].filter(onBox64),
     ]),
   ];
   const selected = game && games.includes(game) ? game : games[0];
@@ -574,7 +578,7 @@ function Content() {
             </PanelSectionRow>
           )}
           <PanelSectionRow>
-            <Field description={t.gameHint} />
+            <Field description={`${t.steamTool}: ${compat[selected]?.display || t.steamDefault}. ${t.gameHint}`} />
           </PanelSectionRow>
         </PanelSection>,
         <GameComponents key="components" game={selected} all={state.components} />,
