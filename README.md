@@ -41,6 +41,10 @@ tried on a device yet.
 4. Change settings under **Defaults for every game**, or pick the game under **Per game**. A game
    shows up there while it runs, and after it was started once with a Box64 tool.
 
+Once Box64 is installed, the panel opens on **Per game** (with that game's Windows components and
+repair), then the defaults, the Proton switches and Box64 itself. It keeps its scroll position and
+choices while you use dropdowns and dialogs.
+
 Settings apply the next time the game starts. Steam launch options always win: a variable set
 there, for example `BOX64_DYNAREC_BIGBLOCK=0 %command%`, overrides the plugin.
 
@@ -75,15 +79,15 @@ Box64**. It downloads the ZIP, checks it, and hands it to Decky's own installer,
 confirmation and reloads the plugin. Settings, tools and Box64 versions stay.
 
 **Windows components** (per game) installs winetricks verbs such as `d3dx9`, `vcrun2008` or
-`directmusic` into the game's prefix. Start the game once with a Box64 tool based on GE-Proton
+`directmusic` into the selected game's own prefix, not into Proton; other games are not touched. Start the game once with a Box64 tool based on GE-Proton
 first: the install runs through that same tool. GE-Proton's protonfixes then sets up the prefix
 as for a launch and runs its own winetricks with the game's Wine, under Box64. The plugin adds a
 native ARM64 `cabextract`. Winetricks downloads the installers, so the device needs internet
 access. Some installers open a window. The log is in `~/.config/armada-box64/logs/`. The tool
 based on Valve's Proton has no protonfixes and cannot install components.
 
-**Clean the prefix** (per game) helps when a game whose prefix an ARM64 Proton created fails
-with `c000007b`: it moves the ARM64 DLLs and the `Wow64` registry keys into
+**Remove ARM64 leftovers** (under **Repair**, per game) helps when a game whose prefix an ARM64 or
+FEX Proton created fails with `c000007b`: it moves the ARM64 DLLs and the `Wow64` registry keys into
 `pfx/arm64-leftovers-<time>/`. Nothing is deleted.
 
 ## How it works
