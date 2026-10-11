@@ -71,7 +71,8 @@ CHOICES = {
 # Fallbacks in every wrapper, for a game started before any settings file exists.
 WRAPPER_DEFAULTS = {'PROTON_NO_NTSYNC': '1', 'PROTON_USE_WOW64': '1', 'BOX64_DYNACACHE': '0'}
 
-GAME_ID = re.compile(r'[0-9]{1,20}')
+# Steam app ids and shortcut ids. Steam runs some setup steps in the prefix "0", which is no game.
+GAME_ID = re.compile(r'[1-9][0-9]{0,19}')
 BOX64_TAG = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}')
 # Written into every tool's proton script; a tool without it predates the current settings support.
 WRAPPER_TAG = '# armada-box64 wrapper 2'

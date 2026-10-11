@@ -310,6 +310,8 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(core.load_settings(self.p)['games'], {'123': {'safeflags': '2'}})
         core.reset_game(self.p, '123')
         self.assertFalse(Path(self.p['games'], '123.env').exists())
+        # Steam's own prefix "0" is not a game and stays out of the list.
+        self.launch('GE-Test-box64', game='0')
         self.assertEqual(core.recent_games(self.p), ['456', '123'])
         self.assertEqual(core.last_tool(self.p, '123'), 'GE-Test-box64')
 
