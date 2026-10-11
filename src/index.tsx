@@ -184,6 +184,7 @@ function GameComponents({ game, all }: { game: string; all: string[] }) {
         <>
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.addComponent}
               menuLabel={t.addComponent}
               rgOptions={available.map((v) => ({ data: v, label: componentLabel(v) }))}
@@ -330,6 +331,7 @@ function Content() {
         <>
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.download}
               menuLabel={t.download}
               rgOptions={downloadable.map((v) => ({ data: v.tag, label: `${v.tag} (${Math.ceil(v.size / 1048576)} MB)` }))}
@@ -348,6 +350,7 @@ function Content() {
         <>
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.removeVersion}
               menuLabel={t.removeVersion}
               rgOptions={runtime.installed.map((v) => ({ data: v, label: v }))}
@@ -454,6 +457,7 @@ function Content() {
       ))}
       <PanelSectionRow>
         <DropdownItem
+          layout="below"
           label={t.box64Version}
           menuLabel={t.box64Version}
           rgOptions={versionOptions}
@@ -463,6 +467,7 @@ function Content() {
       </PanelSectionRow>
       <PanelSectionRow>
         <DropdownItem
+          layout="below"
           label={t.preset}
           menuLabel={t.preset}
           rgOptions={state.presets.map((p) => ({ data: p, label: presetLabel(p) }))}
@@ -472,6 +477,7 @@ function Content() {
       </PanelSectionRow>
       <PanelSectionRow>
         <DropdownItem
+          layout="below"
           label={t.safeflags}
           menuLabel={t.safeflags}
           rgOptions={SAFEFLAGS.map((v) => ({ data: v, label: safeflagsLabel(v) }))}
@@ -497,6 +503,7 @@ function Content() {
         <PanelSection title={t.game} key="game">
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.pickGame}
               menuLabel={t.pickGame}
               rgOptions={games.map((id) => ({
@@ -510,6 +517,7 @@ function Content() {
           {BOOLS.map(({ key, label }) => (
             <PanelSectionRow key={key}>
               <DropdownItem
+                layout="below"
                 label={label}
                 menuLabel={label}
                 rgOptions={[
@@ -524,6 +532,7 @@ function Content() {
           ))}
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.box64Version}
               menuLabel={t.box64Version}
               rgOptions={[{ data: "inherit", label: `${t.useDefault} (${versionLabel(globals.box64)})` }, ...versionOptions]}
@@ -533,6 +542,7 @@ function Content() {
           </PanelSectionRow>
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.preset}
               menuLabel={t.preset}
               rgOptions={[
@@ -545,6 +555,7 @@ function Content() {
           </PanelSectionRow>
           <PanelSectionRow>
             <DropdownItem
+              layout="below"
               label={t.safeflags}
               menuLabel={t.safeflags}
               rgOptions={[
