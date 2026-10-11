@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="744" height="864" viewBox="0 0 744 864">
+<rect width="360" height="864" rx="8" fill="#1a1f26"/>
+<rect x="384" width="360" height="864" rx="8" fill="#1a1f26"/>
+<text x="14" y="34" fill="#dcdedf" font-size="18" font-weight="bold" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">&#8592;  Armada Box64</text>
+<text x="14" y="80" fill="#8b929a" font-size="12" font-weight="bold" letter-spacing="1" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">PER GAME</text>
+<rect x="4" y="92" width="352" height="40" rx="4" fill="#2a3f55"/>
+<text x="14" y="117" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Game</text>
+<rect x="150" y="98" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="117" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Saints Row 2 (running)</text>
+<path d="M326 109 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="134" x2="346" y2="134" stroke="#2c323a"/>
+<text x="14" y="161" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">NTSync</text>
+<rect x="150" y="142" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="161" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Default (Off)</text>
+<path d="M326 153 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="178" x2="346" y2="178" stroke="#2c323a"/>
+<text x="14" y="205" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">WoW64</text>
+<rect x="150" y="186" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="205" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Default (On)</text>
+<path d="M326 197 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="222" x2="346" y2="222" stroke="#2c323a"/>
+<text x="14" y="249" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 code cache</text>
+<rect x="150" y="230" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="249" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Default (Off)</text>
+<path d="M326 241 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="266" x2="346" y2="266" stroke="#2c323a"/>
+<text x="14" y="293" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 log</text>
+<rect x="150" y="274" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="293" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Default (Off)</text>
+<path d="M326 285 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="310" x2="346" y2="310" stroke="#2c323a"/>
+<text x="14" y="337" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 version</text>
+<rect x="150" y="318" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="337" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Default (Newest (v0.4.5-1))</text>
+<path d="M326 329 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="354" x2="346" y2="354" stroke="#2c323a"/>
+<text x="14" y="381" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 preset</text>
+<rect x="150" y="362" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="381" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Performance</text>
+<path d="M326 373 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="398" x2="346" y2="398" stroke="#2c323a"/>
+<text x="14" y="425" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 safe flags</text>
+<rect x="150" y="406" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="425" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">2</text>
+<path d="M326 417 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="442" x2="346" y2="442" stroke="#2c323a"/>
+<rect x="14" y="448" width="332" height="34" rx="3" fill="#3d4450"/>
+<text x="180.0" y="470" fill="#dcdedf" font-size="14" text-anchor="middle" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Use the defaults for this game</text>
+<text x="14" y="512" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">These settings change only the selected game.</text>
+<text x="14" y="546" fill="#8b929a" font-size="12" font-weight="bold" letter-spacing="1" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">WINDOWS COMPONENTS: SAINTS ROW 2</text>
+<text x="14" y="576" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Installed into this game's own Wine prefix (not into</text>
+<text x="14" y="592" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Proton), using GE-Proton10-34-box64.</text>
+<text x="14" y="622" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Already in this game</text>
+<text x="14" y="640" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Direct3D 9 extras (d3dx9)</text>
+<text x="14" y="677" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Component</text>
+<rect x="150" y="658" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="160" y="677" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Visual C++ 2008</text>
+<path d="M326 669 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="14" y1="694" x2="346" y2="694" stroke="#2c323a"/>
+<rect x="14" y="700" width="332" height="34" rx="3" fill="#3d4450"/>
+<text x="180.0" y="722" fill="#dcdedf" font-size="14" text-anchor="middle" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Install Visual C++ 2008 for this game</text>
+<text x="14" y="768" fill="#8b929a" font-size="12" font-weight="bold" letter-spacing="1" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">REPAIR: SAINTS ROW 2</text>
+<text x="14" y="796" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Only after an ARM64 or FEX Proton, for c000007b.</text>
+<rect x="14" y="804" width="332" height="34" rx="3" fill="#3d4450"/>
+<text x="180.0" y="826" fill="#dcdedf" font-size="14" text-anchor="middle" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Remove ARM64 leftovers</text>
+<text x="398" y="34" fill="#dcdedf" font-size="18" font-weight="bold" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">&#8592;  Armada Box64</text>
+<text x="398" y="80" fill="#8b929a" font-size="12" font-weight="bold" letter-spacing="1" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">DEFAULTS FOR EVERY GAME</text>
+<text x="398" y="114" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">NTSync</text>
+<rect x="690" y="100" width="40" height="20" rx="10" fill="#3d4450"/>
+<circle cx="700" cy="110" r="8" fill="#ffffff"/>
+<text x="398" y="136" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Off: NTSync breaks gamepads under Box64</text>
+<line x1="398" y1="146" x2="730" y2="146" stroke="#2c323a"/>
+<text x="398" y="170" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">WoW64</text>
+<rect x="690" y="156" width="40" height="20" rx="10" fill="#1a9fff"/>
+<circle cx="720" cy="166" r="8" fill="#ffffff"/>
+<text x="398" y="192" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Runs 32-bit games inside the 64-bit Wine</text>
+<line x1="398" y1="202" x2="730" y2="202" stroke="#2c323a"/>
+<text x="398" y="226" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 code cache</text>
+<rect x="690" y="212" width="40" height="20" rx="10" fill="#3d4450"/>
+<circle cx="700" cy="222" r="8" fill="#ffffff"/>
+<text x="398" y="248" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Off: a stale cache can stop Wine from starting</text>
+<line x1="398" y1="258" x2="730" y2="258" stroke="#2c323a"/>
+<text x="398" y="285" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 version</text>
+<rect x="534" y="266" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="544" y="285" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Newest (v0.4.5-1)</text>
+<path d="M710 277 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="398" y1="302" x2="730" y2="302" stroke="#2c323a"/>
+<text x="398" y="329" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 preset</text>
+<rect x="534" y="310" width="196" height="28" rx="3" fill="#3d4450"/>
+<text x="544" y="329" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Box64 defaults</text>
+<path d="M710 321 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="398" y1="346" x2="730" y2="346" stroke="#2c323a"/>
+<text x="398" y="370" fill="#8b929a" font-size="12" font-weight="bold" letter-spacing="1" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">PROTON</text>
+<text x="398" y="400" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Each switch makes a "(Box64)" copy of that Proton. Pick</text>
+<text x="398" y="416" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">the copy in the game's Steam properties, Compatibility.</text>
+<text x="398" y="450" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">GE-Proton10-34</text>
+<rect x="690" y="436" width="40" height="20" rx="10" fill="#1a9fff"/>
+<circle cx="720" cy="446" r="8" fill="#ffffff"/>
+<text x="398" y="472" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Shown in Steam as "GE-Proton10-34 (Box64)"</text>
+<line x1="398" y1="482" x2="730" y2="482" stroke="#2c323a"/>
+<text x="398" y="506" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Proton 9.0 (x86_64)</text>
+<rect x="690" y="492" width="40" height="20" rx="10" fill="#3d4450"/>
+<circle cx="700" cy="502" r="8" fill="#ffffff"/>
+<line x1="398" y1="522" x2="730" y2="522" stroke="#2c323a"/>
+<text x="398" y="546" fill="#8b929a" font-size="12" font-weight="bold" letter-spacing="1" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">BOX64</text>
+<text x="398" y="576" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">v0.4.5-1</text>
+<text x="398" y="594" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Installed: v0.4.5-1, v0.4.4, v0.4.3-3</text>
+<text x="398" y="631" fill="#dcdedf" font-size="14" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Download another version</text>
+<rect x="620" y="612" width="110" height="28" rx="3" fill="#3d4450"/>
+<text x="630" y="631" fill="#dcdedf" font-size="12.5" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">v0.4.2</text>
+<path d="M710 623 l5 5 l5 -5" stroke="#dcdedf" stroke-width="1.6" fill="none"/>
+<line x1="398" y1="648" x2="730" y2="648" stroke="#2c323a"/>
+<rect x="398" y="654" width="332" height="34" rx="3" fill="#3d4450"/>
+<text x="564.0" y="676" fill="#dcdedf" font-size="14" text-anchor="middle" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Download v0.4.2</text>
+<text x="398" y="716" fill="#8b929a" font-size="12" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Armada Box64 0.2.3</text>
+<rect x="398" y="724" width="332" height="34" rx="3" fill="#3d4450"/>
+<text x="564.0" y="746" fill="#dcdedf" font-size="14" text-anchor="middle" font-family="'Motiva Sans','Segoe UI',Arial,sans-serif">Check for updates</text>
+</svg>

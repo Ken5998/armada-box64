@@ -481,6 +481,16 @@ def display_name(tool_dir):
         return os.path.basename(tool_dir)
 
 
+def tool_key(tool_dir):
+    """The name Steam stores for a game that uses this tool."""
+    try:
+        with open(os.path.join(tool_dir, 'compatibilitytool.vdf')) as f:
+            m = re.search(r'"compat_tools"\s*\{\s*"([^"]*)"', f.read())
+        return m.group(1) if m else os.path.basename(tool_dir)
+    except OSError:
+        return os.path.basename(tool_dir)
+
+
 def fingerprint(src):
     """Changes when the Proton changes in a way its tool would not follow, as after a Steam update
     in place: the copied proton script, or the set of files that are linked or wrapped."""
@@ -519,8 +529,9 @@ def tools(p):
         # Older installers and the plugin's first version wrote no fingerprint: rebuilding adds one.
         if source_exists and meta.get('fingerprint') != fingerprint(source):
             outdated = True
-        found.append({'dir': entry, 'name': display_name(path), 'source': source, 'outdated': outdated,
-                      'source_exists': source_exists, 'components': supports_components(path)})
+        found.append({'dir': entry, 'name': display_name(path), 'key': tool_key(path), 'source': source,
+                      'outdated': outdated, 'source_exists': source_exists,
+                      'components': supports_components(path)})
     return found
 
 

@@ -11,6 +11,11 @@ settings and the Box64 version for all games or for one game, and install Window
 The original Proton is never changed. The new tool links to its files and starts every x86_64
 program through Box64.
 
+![The Armada Box64 panel: per-game settings, Windows components and repair on the left; defaults, Proton switches and Box64 versions on the right](docs/panel.svg)
+
+*A drawing of the panel, not a screenshot. In the Quick Access menu it is one column: the left
+side comes first, then the right.*
+
 ## Status
 
 Early version. The Box64 route behind it was tested on ArmadaOS (AYN Odin 2, Adreno 740) with
@@ -39,7 +44,8 @@ tried on a device yet.
    **Restart Steam**.
 3. In the game's Properties → Compatibility, pick **<Proton> (Box64)**.
 4. Change settings under **Defaults for every game**, or pick the game under **Per game**. A game
-   shows up there while it runs, and after it was started once with a Box64 tool.
+   shows up there while it runs, and after it was started once with a Box64 tool. A game you
+   switch back to another Proton in Steam leaves the list, unless it has its own settings here.
 
 Once Box64 is installed, the panel opens on **Per game** (with that game's Windows components and
 repair), then the defaults, the Proton switches and Box64 itself. It keeps its scroll position and

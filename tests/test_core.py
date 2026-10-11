@@ -218,7 +218,7 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(os.readlink(dst / 'files' / 'lib'), str(src / 'files' / 'lib'))
         self.assertNotIn('require_tool_appid', (dst / 'toolmanifest.vdf').read_text())
         self.assertIn('"display_name" "GE-Test 10 (Box64)"', (dst / 'compatibilitytool.vdf').read_text())
-        self.assertEqual([t['dir'] for t in core.tools(self.p)], ['GE-Test-10-box64'])
+        self.assertEqual([(t['dir'], t['key']) for t in core.tools(self.p)], [('GE-Test-10-box64', 'GE-Test-10-box64')])
         self.assertEqual([x['name'] for x in core.protons(self.p)], ['GE-Test 10'])
         # The original Proton stays untouched.
         self.assertEqual((src / 'files' / 'bin' / 'wine').read_bytes(), fake_elf(core.X86_64))
