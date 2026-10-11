@@ -556,12 +556,33 @@ function Content() {
   );
 }
 
-export default definePlugin(() => ({
-  name: "Armada Box64",
-  titleView: <div className={staticClasses.Title}>Armada Box64</div>,
-  content: <Content />,
-  icon: <FaMicrochip />,
-  // Decky unmounts a plugin's panel while a dropdown menu or dialog is open; that lost the
-  // choice just made and scrolled back to the top. Kept mounted, the panel stays as it was.
-  alwaysRender: true,
-}));
+const NAME = "Armada Box64";
+
+type DeckyState = {
+  _activePlugin?: { name: string } | null;
+  _plugins?: { name: string }[];
+  setActivePlugin?(name: string): void;
+};
+
+// After an update Decky loads the new plugin but keeps showing the old panel while it stays open
+// (decky-loader issue 976). Once the new plugin is registered, open it in place of the old one.
+function showNewPanel() {
+  const state = (window as unknown as { DeckyPluginLoader?: { deckyState?: DeckyState } }).DeckyPluginLoader
+    ?.deckyState;
+  const active = state?._activePlugin;
+  const loaded = state?._plugins?.find((plugin) => plugin.name === NAME);
+  if (active?.name === NAME && loaded && loaded !== active) state?.setActivePlugin?.(NAME);
+}
+
+export default definePlugin(() => {
+  setTimeout(showNewPanel, 1000);
+  return {
+    name: NAME,
+    titleView: <div className={staticClasses.Title}>{NAME}</div>,
+    content: <Content />,
+    icon: <FaMicrochip />,
+    // Decky unmounts a plugin's panel while a dropdown menu or dialog is open; that lost the
+    // choice just made and scrolled back to the top. Kept mounted, the panel stays as it was.
+    alwaysRender: true,
+  };
+});
