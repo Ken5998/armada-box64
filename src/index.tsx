@@ -28,7 +28,7 @@ type BoolKey = "ntsync" | "wow64" | "dynacache" | "log";
 type State = {
   runtime: { version: string | null; installed: string[]; bundled: string[]; update: boolean };
   protons: { name: string; path: string; wow64: boolean }[];
-  tools: { dir: string; name: string; source: string; source_exists: boolean; outdated: boolean; components: boolean }[];
+  tools: { dir: string; name: string; key: string; source: string; source_exists: boolean; outdated: boolean; components: boolean }[];
   settings: { global: Values; games: Record<string, Partial<Values>> };
   recent: string[];
   presets: string[];
@@ -94,7 +94,8 @@ const kept: {
   catalog?: Catalog;
   games: Record<string, GameInfo>;
   picks: Record<string, string | undefined>;
-} = { games: {}, picks: {} };
+  compat: Record<string, string>;
+} = { games: {}, picks: {}, compat: {} };
 
 function useKept<T>(read: () => T, write: (value: T) => void): [T, (value: T) => void] {
   const [value, setValue] = useState<T>(read);
@@ -104,6 +105,25 @@ function useKept<T>(read: () => T, write: (value: T) => void): [T, (value: T) =>
   }];
 }
 const usePick = (key: string) => useKept(() => kept.picks[key], (v) => (kept.picks[key] = v));
+
+// The compatibility tool Steam uses for each game now, as Steam reports it (empty: Steam's
+// default, or not known yet). Kept up to date while the panel is open.
+function useCompatTools(ids: string[]) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const subscriptions = ids.map((id) =>
+      SteamClient.Apps.RegisterForAppDetails(Number(id), (details) => {
+        const tool = details?.strCompatToolName ?? "";
+        if (kept.compat[id] !== tool) {
+          kept.compat[id] = tool;
+          setTick((n) => n + 1);
+        }
+      }),
+    );
+    return () => subscriptions.forEach((subscription) => subscription?.unregister());
+  }, [ids.join(",")]);
+  return kept.compat;
+}
 
 // One backend call at a time. Controls stay enabled while it runs: Steam moves the gamepad
 // focus (and the scroll position) away from a control that becomes disabled.
@@ -239,6 +259,8 @@ function Content() {
     check(false);
   }, []);
 
+  const compat = useCompatTools(state?.recent ?? []);
+
   if (!state) return null;
   const { runtime, settings } = state;
   const globals = settings.global;
@@ -254,8 +276,16 @@ function Content() {
   const versionLabel = (v: string) => (v === "latest" ? `${t.newest} (${runtime.installed[0] ?? "-"})` : v);
   const versionOptions = ["latest", ...runtime.installed].map((v) => ({ data: v, label: versionLabel(v) }));
 
+  // Recent games that Steam now starts with another Proton leave the list; a game with its own
+  // settings here, or the running one, stays.
+  const box64Tools = new Set(state.tools.map((tool) => tool.key));
+  const onBox64 = (id: string) => !compat[id] || box64Tools.has(compat[id]);
   const games = [
-    ...new Set([...(running ? [String(running)] : []), ...state.recent, ...Object.keys(settings.games)]),
+    ...new Set([
+      ...(running ? [String(running)] : []),
+      ...state.recent.filter(onBox64),
+      ...Object.keys(settings.games),
+    ]),
   ];
   const selected = game && games.includes(game) ? game : games[0];
   const overrides = (selected && settings.games[selected]) || {};
