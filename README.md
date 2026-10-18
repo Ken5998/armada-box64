@@ -36,12 +36,33 @@ tried on a device yet.
    `~/homebrew/plugins/ArmadaBox64` and restarts Decky Loader.
 3. Open the Quick Access menu → Decky → **Armada Box64**.
 
+## Get an x86_64 Proton
+
+The plugin needs an x86_64 Proton to build on. Steam on ArmadaOS installs ARM64 builds of
+Proton, so download GE-Proton yourself (GE-Proton10-34 is the version tested above). In Desktop
+Mode (Konsole) or over ssh:
+
+```bash
+v=GE-Proton10-34
+cd /tmp
+curl -LO "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/$v/$v.tar.gz"
+curl -LO "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/$v/$v.sha512sum"
+sha512sum -c "$v.sha512sum"
+mkdir -p ~/.local/share/Steam/compatibilitytools.d
+tar -xf "$v.tar.gz" -C ~/.local/share/Steam/compatibilitytools.d
+rm "$v.tar.gz" "$v.sha512sum"
+```
+
+Any other x86_64 Proton in `~/.local/share/Steam/compatibilitytools.d` or in
+`steamapps/common` works too; the plugin lists the ones it finds. Pick the **(Box64)** tool in
+Steam, not the original GE-Proton: the original runs under FEX.
+
 ## Use
 
 1. **Box64**: press **Install Box64**. The plugin copies the Box64 versions it ships to
    `~/.local/share/box64-armada`, so the tools keep working when the plugin is updated or removed.
-2. **Proton**: switch on each x86_64 Proton you want a Box64 version of, then press
-   **Restart Steam**.
+2. **Proton**: switch on each x86_64 Proton you want a Box64 version of (see
+   [Get an x86_64 Proton](#get-an-x86_64-proton)), then press **Restart Steam**.
 3. In the game's Properties → Compatibility, pick **<Proton> (Box64)**.
 4. Change settings under **Defaults for every game**, or pick the game under **Per game**. A game
    shows up there while it runs, and after it was started once with a Box64 tool. A game you
