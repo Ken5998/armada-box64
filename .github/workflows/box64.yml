@@ -71,3 +71,80 @@ jobs:
         run: |
           gh release create "box64-$TAG" "box64-$TAG-arm64.tar.gz" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --latest=false --title "Box64 $TAG" --notes-file "out/$TAG/NOTICE.txt"
+
+  # When upstream's newest version is not in the plugin yet: put it in box64-versions, bump the
+  # patch version, test it on a ci/ branch with the Build plugin workflow, then fast-forward main
+  # and release the plugin. A failure opens an issue and leaves main alone.
+  bundle:
+    needs: [plan, build]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.build.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      actions: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: update
+        run: |
+          set -euo pipefail
+          git ls-remote --tags https://github.com/ptitSeb/box64 | python3 scripts/bundle_update.py > update.txt
+          if [[ ! -s update.txt ]]; then
+              echo "The plugin already ships upstream's newest Box64."
+              exit 0
+          fi
+          read -r tag version < update.txt
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Shipping Box64 $tag in plugin v$version: $(tr '\n' ' ' < box64-versions)"
+          git config user.name 'Kenan Kasumović'
+          git config user.email '46025606+Ken5998@users.noreply.github.com'
+          branch="ci/box64-$tag"
+          git switch -c "$branch"
+          git commit -qam "feat: ship Box64 $tag in the plugin (v$version)"
+          git push --force origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Test the plugin on the ci/ branch
+        if: steps.update.outputs.branch
+        env:
+          BRANCH: ${{ steps.update.outputs.branch }}
+        run: |
+          set -euo pipefail
+          since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run build.yml --ref "$BRANCH"
+          id=''
+          for _ in $(seq 30); do
+              sleep 10
+              id="$(gh run list --workflow build.yml --branch "$BRANCH" --event workflow_dispatch \
+                --created ">=$since" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+              [[ -n $id ]] && break
+          done
+          [[ -n $id ]] || { echo "The Build plugin run did not start." >&2; exit 1; }
+          gh run watch "$id" --exit-status --interval 60 > /dev/null
+
+      - name: Merge into main and release
+        if: steps.update.outputs.branch
+        env:
+          BRANCH: ${{ steps.update.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:main"
+          gh workflow run build.yml --ref main -f release=true
+          git push origin --delete "$BRANCH"
+
+      - name: Open an issue
+        if: failure()
+        env:
+          TAG: ${{ steps.update.outputs.tag }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Automatic update to Box64 ${TAG:-(unknown)} failed"
+          if [[ -z "$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[].number')" ]]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" \
+                --body "The weekly Box64 builds run could not ship this version in the plugin: $RUN"
+          fi

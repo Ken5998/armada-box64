@@ -36,15 +36,21 @@ def plan(upstream, count, published, shipped):
     return [t for t in dict.fromkeys(wanted) if f'box64-{t}' not in published]
 
 
+def read_tags(lines):
+    """Tag names from `git ls-remote --tags` output."""
+    upstream = set()
+    for line in lines:
+        ref = line.split()[-1] if line.strip() else ''
+        if ref.startswith('refs/tags/') and not ref.endswith('^{}'):
+            upstream.add(ref[len('refs/tags/'):])
+    return upstream
+
+
 def main(argv):
     count = int(argv[0])
     with open(argv[1]) as f:
         published = set(f.read().split())
-    upstream = set()
-    for line in sys.stdin:
-        ref = line.split()[-1] if line.strip() else ''
-        if ref.startswith('refs/tags/') and not ref.endswith('^{}'):
-            upstream.add(ref[len('refs/tags/'):])
+    upstream = read_tags(sys.stdin)
     here = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(here, '..', 'box64-versions')) as f:
         shipped = f.read().split()

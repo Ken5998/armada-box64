@@ -90,8 +90,8 @@ The presets (Stability, Compatibility, Intermediate, Performance, Unity) use the
 the presets with the same names in GameNative. For example, Performance with safe flags 2 is
 the setup used while testing a 32-bit DirectX 9 game.
 
-**Box64 versions.** The plugin ships the Box64 tags listed in `box64-versions` (now `v0.4.5-1`,
-`v0.4.4` and `v0.4.3-3`, the one tested above). Under **Download another version** it offers the
+**Box64 versions.** The plugin ships the three Box64 tags listed in `box64-versions` (at first
+`v0.4.5-1`, `v0.4.4` and `v0.4.3-3`, the one tested above). Under **Download another version** it offers the
 newest eight Box64 versions published as releases of this repository; **Remove a version**
 deletes one. Downloads are checked against the SHA-256 that GitHub lists for the file. Games use
 the newest installed version unless you pick another, for all games or for one. If the chosen
@@ -100,7 +100,10 @@ version is removed, the game falls back to the newest.
 **New Box64 releases.** Once a week the **Box64 builds** workflow looks at upstream's tags,
 builds every recent version that has no `box64-<tag>` release yet, and publishes it. The plugin
 finds it the next time its menu opens (it checks GitHub at most every six hours; **Check for
-updates** checks now).
+updates** checks now). When upstream's newest version is not in the plugin yet, the same run puts
+it first in `box64-versions` (dropping the oldest tag, which stays downloadable), bumps the patch
+version, tests the plugin on a `ci/box64-<tag>` branch, then moves `main` forward and publishes
+the new plugin release. If something fails it opens an issue and leaves `main` as it was.
 
 **Plugin updates.** When a newer `vX.Y.Z` release exists, the plugin shows **Update Armada
 Box64**. It downloads the ZIP, checks it, and hands it to Decky's own installer, which asks for
@@ -162,7 +165,8 @@ bash scripts/package.sh                                        # out/ArmadaBox64
 python3 -m unittest discover -s tests                         # backend tests
 ```
 
-To ship another Box64 version inside the plugin, add its tag to `box64-versions` (newest first).
+To ship another Box64 version inside the plugin by hand, add its tag to `box64-versions` (newest
+first).
 The downloads need the repository to be public: the device fetches releases without a login.
 
 The device needs glibc 2.39 or newer when Box64 is built on Ubuntu 24.04, as in CI. To publish
