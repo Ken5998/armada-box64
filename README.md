@@ -123,9 +123,10 @@ FEX Proton created fails with `c000007b`: it moves the ARM64 DLLs and the `Wow64
 
 ## How it works
 
-- Every ELF file in the Proton's `files/bin*` folders gets a small wrapper that runs it with
-  Box64. Box64 then runs every x86_64 process Wine starts. Everything else is a link to the
-  original Proton.
+- Every x86 program in the Proton's `files/bin*` folders, and the Wine programs in
+  `files/lib/wine/x86_64-unix` (Proton 11 starts games with `wine-preloader` from there), gets a
+  small wrapper that runs it with Box64. Box64 then runs every x86_64 process Wine starts.
+  Everything else is a link to the original Proton.
 - The tool has no Steam Linux Runtime: that container is x86_64 and would bring FEX back.
 - The tool's `proton` script reads the settings at every start: `~/.config/armada-box64/games/<app id>.env`
   for a game with its own settings, otherwise `defaults.env`. The app id comes from the prefix
@@ -146,6 +147,10 @@ FEX Proton created fails with `c000007b`: it moves the ARM64 DLLs and the `Wow64
 - **Gamepad listed but dead**: `wait failed in the update thread` in the Proton log means NTSync
   is on; switch it off for the game.
 - **A new tool does not appear in Steam**: restart Steam.
+- **A Proton 11 game still starts with `/usr/bin/FEX`**: the tool was made by v0.2.5 or older.
+  Press **Update this tool** in the plugin (or remove it and make it again).
+- **"A game is still running with Box64"**: the plugin waits while a wineserver started by Box64
+  is alive; the message names its PID. Wine servers of FEX or ARM64 Proton games do not count.
 
 ## Remove
 

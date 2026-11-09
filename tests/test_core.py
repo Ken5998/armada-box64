@@ -259,15 +259,50 @@ class CoreTests(unittest.TestCase):
     def test_waits_for_a_running_game(self):
         self.fake_proton('GE-Test')
         core.install_runtime(self.p, str(self.bundle))
-        # A process started like Box64 starts a wineserver: an interpreter with the program as argument.
         script = self.home / 'wineserver'
         script.write_text('sleep 30\n')
-        fake = subprocess.Popen(['sh', str(script)], start_new_session=True)
-        self.addCleanup(fake.wait)
-        self.addCleanup(os.killpg, fake.pid, 9)
-        time.sleep(0.2)
-        with self.assertRaisesRegex(core.Box64Error, 'still running'):
+
+        def start(argv0):
+            proc = subprocess.Popen([argv0, str(script)], executable='/bin/sh', start_new_session=True)
+            self.addCleanup(proc.wait)
+            self.addCleanup(os.killpg, proc.pid, 9)
+            time.sleep(0.2)
+            return proc
+
+        # A wineserver of ARM64 Proton or FEX (an interpreter with the program as argument) does not block.
+        start('FEXInterpreter')
+        core.create_tool(self.p, 'GE-Test')
+        # One that Box64 runs does, and the message names it.
+        proc = start(str(self.home / 'box64'))
+        with self.assertRaisesRegex(core.Box64Error, f'still running.*PID {proc.pid}'):
             core.create_tool(self.p, 'GE-Test')
+
+    def test_proton_11_starts_the_game_through_box64(self):
+        """Proton 11 starts games with lib/wine/x86_64-unix/wine-preloader instead of bin/wine."""
+        src = self.fake_proton('GE-Proton11-1')
+        unix = src / 'files' / 'lib' / 'wine' / 'x86_64-unix'
+        unix.mkdir(parents=True)
+        (src / 'files' / 'lib' / 'wine' / 'x86_64-windows').mkdir()
+        (src / 'files' / 'lib' / 'x86_64-linux-gnu').mkdir()
+        for name in ('wine', 'wine-preloader', 'ntdll.so'):
+            (unix / name).write_bytes(fake_elf(core.X86_64))
+            (unix / name).chmod(0o755)
+        (src / 'files' / 'bin-arm64').mkdir()
+        (src / 'files' / 'bin-arm64' / 'wine').write_bytes(fake_elf(core.AARCH64))
+        core.install_runtime(self.p, str(self.bundle))
+        core.create_tool(self.p, 'GE-Proton11-1')
+        dst = Path(self.p['tools']) / 'GE-Proton11-1-box64' / 'files'
+        tool_unix = dst / 'lib' / 'wine' / 'x86_64-unix'
+        for linked in ('lib/x86_64-linux-gnu', 'lib/wine/x86_64-windows', 'lib/wine/x86_64-unix/ntdll.so', 'bin-arm64/wine'):
+            self.assertTrue((dst / linked).is_symlink(), linked)
+        self.assertIn(f"'{unix}/wine'", (tool_unix / 'wine').read_text())
+        # What Proton 11 runs: the preloader's stand-in hands over to the wrapped loader, which runs Box64.
+        versions = self.p['versions']
+        out = subprocess.run([str(tool_unix / 'wine-preloader'), str(tool_unix / 'wine')],
+                             env={'PATH': os.environ['PATH'], 'ARMADA_BOX64': f'{versions}/v0.4.3-3/box64'},
+                             capture_output=True, text=True, check=True).stdout
+        self.assertEqual(out, 'Box64 v0.4.3-3 test build\n')
+        self.assertEqual(self.launch('GE-Proton11-1-box64')['env']['PROTON_USE_ARM64'], '0')
 
     def test_refuses_foreign_folders(self):
         self.fake_proton('Mine')

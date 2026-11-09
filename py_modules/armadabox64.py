@@ -75,7 +75,7 @@ WRAPPER_DEFAULTS = {'PROTON_NO_NTSYNC': '1', 'PROTON_USE_WOW64': '1', 'BOX64_DYN
 GAME_ID = re.compile(r'[1-9][0-9]{0,19}')
 BOX64_TAG = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}')
 # Written into every tool's proton script; a tool without it predates the current settings support.
-WRAPPER_TAG = '# armada-box64 wrapper 2'
+WRAPPER_TAG = '# armada-box64 wrapper 3'
 
 # Windows components offered per game, as winetricks verbs. They install through GE-Proton's
 # protonfixes, which runs winetricks with the game's own Wine and prefix.
@@ -141,8 +141,11 @@ def system_env():
     return env
 
 
-def wine_running():
-    """True while a wineserver runs, natively or as box64's first argument."""
+def box64_wineservers():
+    """PIDs of the wineservers that Box64 runs, the way a Box64 tool starts them. Other Wine
+    servers (ARM64 Proton, FEX, a lingering session of another tool) do not use the files the
+    plugin changes, so they do not count."""
+    found = []
     for pid in os.listdir('/proc'):
         if not pid.isdigit():
             continue
@@ -151,14 +154,22 @@ def wine_running():
                 args = f.read().split(b'\0')[:2]
         except OSError:
             continue
-        if any(os.path.basename(a) == b'wineserver' for a in args):
-            return True
-    return False
+        if len(args) == 2 and os.path.basename(args[0]).startswith(b'box64') \
+                and os.path.basename(args[1]) == b'wineserver':
+            found.append(int(pid))
+    return sorted(found)
+
+
+def wine_running():
+    """True while a game started with a Box64 tool still runs."""
+    return bool(box64_wineservers())
 
 
 def require_no_wine():
-    if wine_running():
-        raise Box64Error('A game is still running: close it and wait a few seconds.')
+    pids = box64_wineservers()
+    if pids:
+        raise Box64Error('A game is still running with Box64: close it and wait a few seconds '
+                         f'(wineserver PID {", ".join(map(str, pids))}).')
 
 
 def elf_machine(path):
@@ -576,6 +587,8 @@ def wrapper_script(p, source_name):
 here=$(dirname "$(readlink -f "$0")")
 # HODLL selects an ARM64 Proton's 32-bit emulator DLL; it must not leak into an x86_64 Wine.
 unset HODLL
+# Proton 11 picks its ARM64 Wine on an ARM64 device when it has one; this tool runs the x86_64 one.
+export PROTON_USE_ARM64=0
 cfg="${{XDG_CONFIG_HOME:-$HOME/.config}}/armada-box64"
 # The prefix folder's name is the game's app id, also for non-Steam shortcuts.
 game=
@@ -606,6 +619,39 @@ export BOX64_RCFILE="$box64/box64.box64rc"
 export BOX64_LD_LIBRARY_PATH="$box64/x64lib:$box64/x86lib"
 exec python3 "$here/proton.py" "$@"
 '''
+
+
+UNIX_DIRS = ('x86_64-unix', 'i386-unix')
+X86_MACHINES = (X86_64, 0x03)
+
+
+def real_folder(path):
+    return os.path.isdir(path) and not os.path.islink(path)
+
+
+def wrap_folder(p, real_dir, dst_dir, programs_only=False):
+    """Links every file of real_dir into dst_dir, except x86 programs: those get a script that runs
+    them with Box64. With programs_only (Wine's lib folders), only executables that are not shared
+    libraries count as programs."""
+    os.makedirs(dst_dir)
+    for item in sorted(os.listdir(real_dir)):
+        real = os.path.join(real_dir, item)
+        link = os.path.join(dst_dir, item)
+        program = os.path.isfile(real) and elf_machine(real) in X86_MACHINES
+        if programs_only and (item.endswith('.so') or '.so.' in item or not os.access(real, os.X_OK)):
+            program = False
+        if not program:
+            os.symlink(real, link)
+        elif programs_only and item.endswith('-preloader'):
+            # Proton 11 runs lib/wine/x86_64-unix/wine-preloader with the wine loader next to it as
+            # argument. Box64 reserves the address space itself, so the stand-in runs that loader,
+            # which is wrapped as well.
+            write(link, '#!/bin/sh\nexec "$@"\n', executable=True)
+        else:
+            # Box64 then runs every x86 program Wine starts (wineserver, loaders) by itself.
+            # ARMADA_BOX64 comes from the tool's proton script; the default covers direct starts.
+            write(link, f'#!/bin/sh\nbox64={sh_quote(p["box64"])}\n'
+                        f'exec "${{ARMADA_BOX64:-$box64}}" {sh_quote(real)} "$@"\n', executable=True)
 
 
 def create_tool(p, proton_name):
@@ -641,24 +687,30 @@ def create_tool(p, proton_name):
     shutil.copy2(os.path.join(src, 'proton'), os.path.join(dst, 'proton.py'))
     write(os.path.join(dst, 'proton'), wrapper_script(p, proton_name), executable=True)
 
-    # Every bin* folder (bin, and bin-wow64 in newer Protons) gets Box64 wrappers; the rest is linked.
+    # Every bin* folder (bin, and bin-wow64 in newer Protons) gets Box64 wrappers. Proton 11 also
+    # starts games with lib/wine/x86_64-unix/wine-preloader directly, so the Wine programs there
+    # are wrapped too; everything else is linked.
     os.makedirs(os.path.join(dst, 'files'))
     for entry in sorted(os.listdir(os.path.join(src, 'files'))):
         real_dir = os.path.join(src, 'files', entry)
-        if not (entry.startswith('bin') and os.path.isdir(real_dir) and not os.path.islink(real_dir)):
-            os.symlink(real_dir, os.path.join(dst, 'files', entry))
-            continue
-        os.makedirs(os.path.join(dst, 'files', entry))
-        for item in sorted(os.listdir(real_dir)):
-            real = os.path.join(real_dir, item)
-            link = os.path.join(dst, 'files', entry, item)
-            if os.path.isfile(real) and elf_machine(real) is not None:
-                # Box64 then runs every x86 program Wine starts (wineserver, loaders) by itself.
-                # ARMADA_BOX64 comes from the tool's proton script; the default covers direct starts.
-                write(link, f'#!/bin/sh\nbox64={sh_quote(p["box64"])}\n'
-                            f'exec "${{ARMADA_BOX64:-$box64}}" {sh_quote(real)} "$@"\n', executable=True)
-            else:
-                os.symlink(real, link)
+        link = os.path.join(dst, 'files', entry)
+        if entry.startswith('bin') and real_folder(real_dir):
+            wrap_folder(p, real_dir, link)
+        elif entry == 'lib' and any(real_folder(os.path.join(real_dir, 'wine', u)) for u in UNIX_DIRS):
+            os.makedirs(link)
+            for item in sorted(os.listdir(real_dir)):
+                if item != 'wine':
+                    os.symlink(os.path.join(real_dir, item), os.path.join(link, item))
+                    continue
+                os.makedirs(os.path.join(link, 'wine'))
+                for sub in sorted(os.listdir(os.path.join(real_dir, 'wine'))):
+                    real_sub = os.path.join(real_dir, 'wine', sub)
+                    if sub in UNIX_DIRS and real_folder(real_sub):
+                        wrap_folder(p, real_sub, os.path.join(link, 'wine', sub), programs_only=True)
+                    else:
+                        os.symlink(real_sub, os.path.join(link, 'wine', sub))
+        else:
+            os.symlink(real_dir, link)
 
     write(os.path.join(dst, 'compatibilitytool.vdf'), f'''"compatibilitytools"
 {{
